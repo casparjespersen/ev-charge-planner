@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>EV Charging Calculator</title>
+    <!-- Include Bootstrap 3 CSS from CDN -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+</head>
+<body style="padding-top: 50px;">
+
+<div class="container">
+    <h2 class="text-center">EV Charging Calculator</h2>
+    <form class="form-horizontal">
+        <div class="form-group">
+            <label for="calculate" class="col-sm-4 control-label">Parameter to Calculate:</label>
+            <div class="col-sm-8">
+                <select id="calculate" class="form-control">
+                    <option value="soc">Charging Power as SoC (%)</option>
+                    <option value="current">Charging Current (A)</option>
+                    <option value="duration">Charging Duration (minutes)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="current" class="col-sm-4 control-label">Charging Current (A):</label>
+            <div class="col-sm-8">
+                <input type="number" class="form-control" id="current" placeholder="Enter current in Amperes">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="duration" class="col-sm-4 control-label">Charging Duration (minutes):</label>
+            <div class="col-sm-8">
+                <input type="number" class="form-control" id="duration" placeholder="Enter duration in minutes" step="15">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="soc" class="col-sm-4 control-label">Charging Power as SoC (%):</label>
+            <div class="col-sm-8">
+                <input type="number" class="form-control" id="soc" placeholder="Enter SoC increase in percentage">
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Include jQuery and Bootstrap 3 JS from CDN -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script>
+    // JavaScript code to handle the calculations
+    $(document).ready(function() {
+        function calculate() {
+            var calculate = $('#calculate').val();
+            var current = parseFloat($('#current').val());
+            var duration = parseFloat($('#duration').val());
+            var soc = parseFloat($('#soc').val());
+
+            if (calculate === 'soc') {
+                if (!isNaN(current) && !isNaN(duration)) {
+                    var socResult = current * duration * 0.0153333;
+                    $('#soc').val(socResult.toFixed(2));
+                } else {
+                    $('#soc').val('');
+                }
+            } else if (calculate === 'current') {
+                if (!isNaN(soc) && !isNaN(duration) && duration !== 0) {
+                    var currentResult = soc / (duration * 0.0153333);
+                    $('#current').val(currentResult.toFixed(2));
+                } else {
+                    $('#current').val('');
+                }
+            } else if (calculate === 'duration') {
+                if (!isNaN(soc) && !isNaN(current) && current !== 0) {
+                    var durationResult = soc / (current * 0.0153333);
+                    // Round duration to the nearest 15 minutes
+                    durationResult = Math.round(durationResult / 15) * 15;
+                    $('#duration').val(durationResult);
+                } else {
+                    $('#duration').val('');
+                }
+            }
+        }
+
+        function toggleInputs() {
+            var calculate = $('#calculate').val();
+            $('#current').prop('disabled', calculate === 'current');
+            $('#duration').prop('disabled', calculate === 'duration');
+            $('#soc').prop('disabled', calculate === 'soc');
+            $('#current').val('');
+            $('#duration').val('');
+            $('#soc').val('');
+        }
+
+        $('#calculate').change(function() {
+            toggleInputs();
+            calculate();
+        });
+
+        $('#current, #duration, #soc').on('input', function() {
+            calculate();
+        });
+
+        // Initialize the form
+        toggleInputs();
+    });
+</script>
+</body>
+</html>
