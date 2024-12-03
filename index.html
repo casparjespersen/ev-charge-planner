@@ -111,8 +111,8 @@
 
         async function fetchForecast() {
             try {
-                const LATITUDE = 55.79;
-                const LONGITUDE = 12.53;
+                const LATITUDE = 55.7978;
+                const LONGITUDE = 12.4952;
                 const today = new Date();
                 const endDate = new Date();
                 endDate.setDate(today.getDate() + 7);
@@ -129,6 +129,7 @@
                 url.searchParams.append('timezone', 'Europe/Copenhagen');
                 url.searchParams.append('tilt', 26);
                 url.searchParams.append('azimuth', 45);
+                url.searchParams.append('models', 'dmi_seamless');
 
                 const response = await fetch(url);
                 const data = await response.json();
