@@ -2,291 +2,92 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Å209</title>
-    <!-- Include Bootstrap 5 CSS from CDN -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Electricity Forecast</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
     <style>
-        body {
-            padding-top: 20px;
+        /* Custom styles for coloring */
+        .good {
+            color: darkgreen; /* Light green */
         }
-        .form-label {
-            font-weight: bold;
+        .normal {
+            color: orange; /* Light yellow */
         }
-        .form-container {
-            max-width: 500px;
-            margin: auto;
+        .bad {
+            color: darkred; /* Light red */
         }
     </style>
 </head>
 <body>
-
-<!-- Navigation Menu -->
-<nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
-  <div class="container-fluid">
-    <a class="navbar-brand" href="#">Å209</a>
-    <div class="navbar-nav">
-      <a class="nav-link active" href="#" id="nav-forecast">Solar</a>
-      <a class="nav-link" href="#" id="nav-calculator">EV</a>
+    <div class="container my-4">
+        <h1 class="text-center">Electricity Forecast</h1>
+        <table class="table table-bordered">
+            <thead class="thead-light">
+                <tr>
+                    <th>Date</th>
+                    <th>Night Price</th>
+                    <th>Solar</th>
+                </tr>
+            </thead>
+            <tbody id="forecast-table">
+                <!-- Data will be populated here -->
+            </tbody>
+        </table>
     </div>
-  </div>
-</nav>
-
-<!-- Content for Solar Production Forecast -->
-<div class="container form-container" id="content-forecast">
-    <h2 class="mb-4">Solar Production Forecast</h2>
-    <div id="chart-container">
-        <canvas id="forecastChart"></canvas>
-    </div>
-</div>
-
-<!-- Content for EV Charging Calculator -->
-<div class="container form-container" id="content-calculator" style="display:none;">
-    <h2 class="text-center">EV Charging Calculator</h2>
-    <form>
-        <div class="mb-3">
-            <label for="calculate" class="form-label">Parameter to Calculate:</label>
-            <select id="calculate" class="form-select">
-                <option value="soc">Charging Power as SoC (%)</option>
-                <option value="current">Charging Current (A)</option>
-                <option value="duration">Charging Duration (minutes)</option>
-            </select>
-        </div>
-
-        <div class="mb-3">
-            <label for="current" class="form-label">Charging Current (A):</label>
-            <input type="number" class="form-control" id="current" placeholder="Enter current in Amperes">
-        </div>
-
-        <div class="mb-3">
-            <label for="duration" class="form-label">Charging Duration (minutes):</label>
-            <input type="number" class="form-control" id="duration" placeholder="Enter duration in minutes" step="15">
-        </div>
-
-        <div class="mb-3">
-            <label for="soc" class="form-label">Charging Power as SoC (%):</label>
-            <input type="number" class="form-control" id="soc" placeholder="Enter SoC increase in percentage">
-        </div>
-    </form>
-</div>
-
-<!-- Include jQuery and Bootstrap 5 JS from CDN -->
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<!-- Add Chart.js (only needed for the forecast) -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<script>
-    // Navigation Menu Handler
-    $(document).ready(function() {
-        $('#nav-forecast').click(function(e) {
-            e.preventDefault();
-            $('#content-forecast').show();
-            $('#content-calculator').hide();
-            $('#nav-forecast').addClass('active');
-            $('#nav-calculator').removeClass('active');
-            // Trigger forecast fetch if needed
-            if (!$('#forecastChart').data('loaded')) {
-                fetchForecast();
-            }
-        });
-
-        $('#nav-calculator').click(function(e) {
-            e.preventDefault();
-            $('#content-forecast').hide();
-            $('#content-calculator').show();
-            $('#nav-forecast').removeClass('active');
-            $('#nav-calculator').addClass('active');
-        });
-    });
-</script>
-
-<script>
-    // JavaScript code for Solar Production Forecast
-    (function() {
-        // Constants from the trained model
-        const MODEL_COEFFICIENTS = {
-            'global_tilted_irradiance': 0.003844,
-        };
-
-        async function fetchForecast() {
-            try {
-                const LATITUDE = 55.7978;
-                const LONGITUDE = 12.4952;
-                const today = new Date();
-                const endDate = new Date();
-                endDate.setDate(today.getDate() + 7);
-
-                const url = new URL('https://api.open-meteo.com/v1/forecast');
-                url.searchParams.append('latitude', LATITUDE);
-                url.searchParams.append('longitude', LONGITUDE);
-                url.searchParams.append('start_date', today.toISOString().split('T')[0]);
-                url.searchParams.append('end_date', endDate.toISOString().split('T')[0]);
-                url.searchParams.append('hourly', [
-                    'temperature_2m',
-                    'global_tilted_irradiance',
-                ].join(','));
-                url.searchParams.append('timezone', 'Europe/Copenhagen');
-                url.searchParams.append('tilt', 26);
-                url.searchParams.append('azimuth', 35);
-                url.searchParams.append('models', 'dmi_seamless');
-
-                const response = await fetch(url);
-                const data = await response.json();
-
-                // Process hourly data
-                const predictions = data.hourly.time.map((timestamp, index) => {
-                    const normalizedFeatures = {
-                        global_tilted_irradiance: data.hourly.global_tilted_irradiance[index],
-                    };
-
-                    let prediction = 0;
-                    for (const [feature, coefficient] of Object.entries(MODEL_COEFFICIENTS)) {
-                        prediction += normalizedFeatures[feature] * coefficient;
-                    }
-
-                    return {
-                        timestamp: new Date(timestamp),
-                        prediction: prediction
-                    };
-                });
-
-                // Group by day and sum predictions
-                const dailyPredictions = predictions.reduce((acc, curr) => {
-                    const date = curr.timestamp.toISOString().split('T')[0];
-                    acc[date] = (acc[date] || 0) + curr.prediction;
-                    return acc;
-                }, {});
-
-                // Update chart
-                updateChart(dailyPredictions);
-                $('#forecastChart').data('loaded', true); // Mark chart as loaded
-            } catch (error) {
-                console.error('Error fetching forecast:', error);
+    <script>
+        function getRelativeDate(dateString) {
+            const today = new Date();
+            const givenDate = new Date(dateString);
+            
+            // Calculate the difference in days
+            const timeDifference = givenDate - today;
+            const dayDifference = Math.ceil(timeDifference / (1000 * 60 * 60 * 24));
+            
+            if (dayDifference === 0) {
+                return "Today";
+            } else if (dayDifference === 1) {
+                return "Tomorrow";
+            } else {
+                // For further dates, return the full date in YYYY-MM-DD format
+                return moment(dateString).format("ddd, MMM Do");
             }
         }
 
-        function updateChart(dailyPredictions) {
-            const ctx = document.getElementById('forecastChart').getContext('2d');
+        $(document).ready(function(){
+            $.getJSON('http://206.189.12.80:8000/status', function(data){
+                var tableBody = '';
+                data.forEach(function(item){
+                    // Determine class for solar production
+                    var productionClass = '';
+                    if(item.predicted_production > 5) {
+                        productionClass = 'good';
+                    } else if(item.predicted_production > 3) {
+                        productionClass = 'normal';
+                    } else {
+                        productionClass = 'bad';
+                    }
 
-            const formattedLabels = Object.keys(dailyPredictions).map(date => {
-                const d = new Date(date);
-                return d.toLocaleDateString('en-US', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric'
+                    // Determine class for electricity prices
+                    var priceClass = '';
+                    if(item.price_lower < 0.3) {
+                        priceClass = 'good';
+                    } else if(item.price_lower < 0.8) {
+                        priceClass = 'normal';
+                    } else {
+                        priceClass = 'bad';
+                    }
+
+                    tableBody += '<tr>';
+                    tableBody += '<td>' + getRelativeDate(item.date) + '</td>';
+                    tableBody += '<td class="' + priceClass + '">' + item.price_lower.toFixed(2) + ' kr</td>';
+                    tableBody += '<td class="' + productionClass + '">' + item.predicted_production.toFixed(2) + ' kWh</td>';
+                    tableBody += '</tr>';
                 });
+                $('#forecast-table').html(tableBody);
             });
-
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: formattedLabels,
-                    datasets: [{
-                        label: 'Predicted Daily Production (kWh)',
-                        data: Object.values(dailyPredictions).map(v => Number(v.toFixed(1))),
-                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                        borderColor: 'rgba(75, 192, 192, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Production (kWh)'
-                            }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'Date'
-                            }
-                        }
-                    },
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.parsed.x.toFixed(1)} kWh`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        // Load forecast when the page loads
-        $(document).ready(function() {
-            fetchForecast();
         });
-    })();
-</script>
-
-<script>
-    // JavaScript code for EV Charging Calculator
-    (function() {
-        $(document).ready(function() {
-            function calculate() {
-                var calculate = $('#calculate').val();
-                var current = parseFloat($('#current').val());
-                var duration = parseFloat($('#duration').val());
-                var soc = parseFloat($('#soc').val());
-
-                if (calculate === 'soc') {
-                    if (!isNaN(current) && !isNaN(duration)) {
-                        var socResult = current * duration * 0.0153333;
-                        $('#soc').val(socResult.toFixed(2));
-                    } else {
-                        $('#soc').val('');
-                    }
-                } else if (calculate === 'current') {
-                    if (!isNaN(soc) && !isNaN(duration) && duration !== 0) {
-                        var currentResult = soc / (duration * 0.0153333);
-                        $('#current').val(currentResult.toFixed(2));
-                    } else {
-                        $('#current').val('');
-                    }
-                } else if (calculate === 'duration') {
-                    if (!isNaN(soc) && !isNaN(current) && current !== 0) {
-                        var durationResult = soc / (current * 0.0153333);
-                        durationResult = Math.round(durationResult / 15) * 15;
-                        $('#duration').val(durationResult);
-                    } else {
-                        $('#duration').val('');
-                    }
-                }
-            }
-
-            function toggleInputs() {
-                var calculate = $('#calculate').val();
-                $('#current').prop('disabled', calculate === 'current');
-                $('#duration').prop('disabled', calculate === 'duration');
-                $('#soc').prop('disabled', calculate === 'soc');
-                $('#current').val('');
-                $('#duration').val('');
-                $('#soc').val('');
-            }
-
-            $('#calculate').change(function() {
-                toggleInputs();
-                calculate();
-            });
-
-            $('#current, #duration, #soc').on('input', function() {
-                calculate();
-            });
-
-            // Initialize the form
-            toggleInputs();
-        });
-    })();
-</script>
-
+    </script>
 </body>
 </html>
